@@ -54,7 +54,7 @@ assert.throws(() => hostValidation({ hosts: ['test.com'], mode: 'fakemode' }), (
 })
 
 assert.throws(() => hostValidation({ hosts: ['test.com'], fail: 5 }), (err) => {
-  return err.message === 'config.fail must be a function if it is defined.'
+  return err.message === 'config.fail must be either function or an instance of Error if it is defined.'
 })
 
 // SERVER --------------------------------------------------------------------------------
@@ -109,14 +109,26 @@ app.get('/lan-referer-regex-test', (req, res) => allowed(res))
 app.use('/https-referer', hostValidation({ referers: [/^https:\/\//] }))
 app.get('/https-referer', (req, res) => allowed(res))
 
-app.use('/custom-fail-test', hostValidation({
+app.use('/custom-fail-function-test', hostValidation({
   referers: [/^https:\/\//],
   fail: (req, res, next) => {
     // using 401 instead of 403 for testing purposes only
     res.status(401).send('Forbidden: Referer must be an HTTPS site.')
   }
 }))
-app.get('/custom-fail-test', (req, res) => allowed(res))
+app.get('/custom-fail-function-test', (req, res) => allowed(res))
+
+app.use(
+  '/custom-fail-error-test',
+  hostValidation({
+    referers: [/^https:\/\//],
+    fail: new Error('Forbidden: Referer must be an HTTPS site.')
+  }),
+  (err, req, res, next) => {
+    res.status(401).send(err.message)
+  }
+)
+app.get('/custom-fail-error-test', (req, res) => allowed(res))
 
 app.use('/custom-fail-teapot-test', hostValidation({
   hosts: ['office-teapot'],
@@ -333,7 +345,12 @@ function runClientTests () {
   options.headers.Referer = 'http://github.com/login'
   request(options, expect(clone(options), 403))
 
-  options.url = `${server}/custom-fail-test`
+  options.url = `${server}/custom-fail-function-test`
+  options.headers.Host = null
+  options.headers.Referer = 'https://google.com'
+  request(options, expect(clone(options), 200))
+
+  options.url = `${server}/custom-fail-error-test`
   options.headers.Host = null
   options.headers.Referer = 'https://google.com'
   request(options, expect(clone(options), 200))

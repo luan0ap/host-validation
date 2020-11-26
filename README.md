@@ -111,13 +111,22 @@ app.use('/from-twitter', hostValidation({ referrers: [/^https:\/\/twitter.com\//
 Add a custom error handler that's run when host or referer validation fails. This function overwrites the default behavior of responding to failed requests with a `403 Forbidden` error.
 
 ```javascript
-// 
 app.use('/brew-tea', hostValidation({ 
 	hosts: ['office-teapot'],
 	fail: (req, res, next) => {
         // send a 418 "I'm a Teapot" Error
 		res.status(418).send('I\'m the office teapot. Refer to me only as such.')
 	}
+}))
+```
+
+Should be an instance of Error as well
+Error instance will be skipped to the next middlware
+
+```javascript
+app.use('/brew-tea', hostValidation({ 
+	hosts: ['office-teapot'],r
+	fail: new Error('Error on validate')
 }))
 ```
 

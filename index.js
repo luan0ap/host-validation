@@ -18,6 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+/**
+ * Get the true type of data
+ * @function
+ * @param {*} data - Any javascript data
+ * @return {string}
+ */
+const getTypeOf = data => ({}).toString.call(data).match(/\s([a-zA-Z]+)/)[1].toLowerCase()
+
 module.exports = function (config) {
   if (!config) {
     throw Error('a config object must be provided as the first argument to this function.')
@@ -58,8 +66,12 @@ module.exports = function (config) {
     config.mode = 'both' // set default mode to both
   }
 
-  if (config.fail != null && typeof config.fail !== 'function') {
-    throw Error('config.fail must be a function if it is defined.')
+  if (config.fail) {
+    if (getTypeOf(config.fail) !== 'function') {
+      if (getTypeOf(config.fail) !== 'error') {
+        throw Error('config.fail must be either function or an instance of Error if it is defined.')
+      }
+    }
   }
 
   return function (req, res, next) {
@@ -76,8 +88,10 @@ module.exports = function (config) {
 
     if (allowed) {
       next()
-    } else if (typeof config.fail === 'function') {
+    } else if (getTypeOf(config.fail) === 'function') {
       config.fail(req, res, next)
+    } else if (config.fail instanceof Error) {
+      next(config.fail)
     } else {
       fail(req, res, next)
     }
@@ -86,9 +100,9 @@ module.exports = function (config) {
   function isAllowed (headerValue, allowedValues) {
     if (!headerValue || !allowedValues) return false
     return allowedValues.some(candidate => {
-      if (typeof candidate === 'string') {
+      if (getTypeOf(candidate) === 'string') {
         return candidate === headerValue
-      } else if (candidate instanceof RegExp) {
+      } else if (getTypeOf(candidate) === 'regexp') {
         return candidate.test(headerValue)
       }
       return false
@@ -96,7 +110,7 @@ module.exports = function (config) {
   }
 
   function checkAllowedType (type) {
-    if (!(typeof type === 'string' || type instanceof RegExp)) {
+    if (!(getTypeOf(type) === 'string' || getTypeOf(type) === 'regexp')) {
       let message = `${type} is not an allowed Host/Referer type. `
       message += 'Host/Referer values must be either strings or '
       message += 'regular expression objects.'
